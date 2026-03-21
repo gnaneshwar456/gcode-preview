@@ -1,0 +1,28 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Build output
+out/
+dist/
+
+# VS Code test temp directory
+.vscode-test/
+
+# VSIX Packages
+*.vsix
+
+# OS temporary files
+.DS_Store
+Thumbs.db
+
+# User specific files and test files
+*.gcode
+Plano.md
+
+# Agent specific files
+.gemini/
+brain/
+implementation_plan.md
+walkthrough.md
+

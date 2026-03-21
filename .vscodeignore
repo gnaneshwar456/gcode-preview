@@ -1,0 +1,12 @@
+.vscode/**
+.vscode-test/**
+src/**
+node_modules/**
+.gitignore
+tsconfig.json
+webpack.config.js
+esbuild.js
+*.gcode
+*.md
+!README.md
+!CHANGELOG.md

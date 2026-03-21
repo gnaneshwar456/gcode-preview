@@ -1,0 +1,100 @@
+{
+  "name": "gcode-preview",
+  "displayName": "GCode Preview",
+  "description": "Real-time 3D GCode preview for VSCode using Three.js",
+  "version": "0.1.0",
+  "publisher": "GleisonPauloC",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "gcode",
+    "3d printing",
+    "slicer",
+    "preview",
+    "threejs"
+  ],
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gleisonpauloc/gcode-preview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gleisonpauloc/gcode-preview/issues"
+  },
+  "activationEvents": [
+    "onLanguage:gcode"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gcode-preview.openPreview",
+        "title": "GCode Viewer: Open Preview",
+        "icon": "$(open-preview)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "gcode-preview.openPreview",
+          "group": "navigation",
+          "when": "resourceExtname == .gcode || resourceExtname == .gco || resourceExtname == .g"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "gcode",
+        "extensions": [
+          ".gcode",
+          ".gco",
+          ".g"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "GCode Preview",
+      "properties": {
+        "gcodePreview.bedSize": {
+          "type": "number",
+          "default": 220,
+          "description": "Size of the print bed in mm (X and Y)."
+        },
+        "gcodePreview.theme": {
+          "type": "string",
+          "enum": [
+            "dark",
+            "light"
+          ],
+          "default": "dark",
+          "description": "Background theme of the 3D viewer."
+        },
+        "gcodePreview.extrusionColor": {
+          "type": "string",
+          "default": "#ff7a00",
+          "description": "Hexadecimal color for the GCode extrusion lines."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch"
+  },
+  "homepage": "https://github.com/gleisonpauloc/gcode-preview",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/three": "^0.160.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.19.11",
+    "three": "^0.160.0",
+    "typescript": "^5.3.3"
+  }
+}
