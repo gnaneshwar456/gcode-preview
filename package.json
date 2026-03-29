@@ -2,7 +2,7 @@
   "name": "gcode-preview",
   "displayName": "GCode Preview",
   "description": "Real-time 3D GCode preview for VSCode using Three.js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "GleisonPauloC",
   "engines": {
     "vscode": "^1.80.0"

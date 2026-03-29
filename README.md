@@ -7,7 +7,9 @@ A professional, high-performance real-time 3D GCode visualization extension for 
 ## Features
 
 - **Real-Time 3D Rendering**: True 3D tube geometry (using InstancedMesh) showing depth, volume, and shading. Far superior to basic flat line renders.
-- **Accurate Layer Analysis**: Correctly separates toolpaths into discrete layers, even ignoring complex `Z-Hops`.
+- **Accurate Layer Analysis**: Correctly separates toolpaths into discrete layers, even ignoring complex `Z-Hops`. Supports explicit slicer layer markers (`;LAYER:N`).
+- **Dual Layer Range Slider**: Independently control the start and end layer to isolate any slice of the print for inspection.
+- **Print Recovery Tool**: Generate a resumable GCode file from an interrupted print — select the recovery layer with the slider, click **Recover**, and save a cropped file with a safe purge and re-positioning sequence injected automatically.
 - **Live Reload**: Edit your `.gcode` script manually and watch the 3D model update seamlessly on the fly.
 - **Support for Slicer Standards**: Out of the box support for absolute (`G90`) / relative (`G91`) positioning, and extruder modes (`M82` / `M83`).
 - **Webview Architecture**: Zero native binaries required. Everything runs blazingly fast in the native VSCode Webview.
@@ -15,16 +17,30 @@ A professional, high-performance real-time 3D GCode visualization extension for 
 
 ## Usage
 
+### Previewing a GCode File
+
 1. Open any `.gcode` file.
 2. Click the **"Open GCode Preview"** button located at the top right of your Editor Title bar (the Eye/Preview icon).
-3. Alternatively, open the VSCode Command Palette (`Ctrl+Shift+P` ou `Cmd+Shift+P`) and type `GCode Viewer: Open Preview`.
+3. Alternatively, open the VSCode Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`) and type `GCode Viewer: Open Preview`.
+
+### Recovering an Interrupted Print
+
+1. Open the GCode file for the failed print and open its 3D preview.
+2. Use the **Start Layer** slider to select the layer where you want to resume printing.
+3. Click the **Recover** button in the panel.
+4. A new `.recovered.gcode` file will be saved next to the original.
+5. The recovery file contains the original startup/setup sequence (with Z-movement stripped to preserve your manually set Z-offset), followed by a purge sequence and safe XY re-positioning block, and then the print body from your chosen layer onward.
 
 ## Configuration Options
 
 This extension contributes the following variables to your VSCode settings:
-- `gcodePreview.bedSize`: Default bed size in mm (e.g. `220`).
-- `gcodePreview.theme`: Set to `dark` or `light` background style.
-- `gcodePreview.extrusionColor`: The hex color for printed lines (e.g. `#ff7a00`).
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `gcodePreview.bedSize` | `number` | `220` | Size of the print bed in mm (X and Y). |
+| `gcodePreview.theme` | `string` | `"dark"` | Background theme of the 3D viewer (`dark` or `light`). |
+| `gcodePreview.extrusionColor` | `string` | `"#ff7a00"` | Hex color for printed extrusion lines. |
+| `gcodePreview.recoveryPurgeGCode` | `string` | `"G1 E10 F300\n"` | GCode commands executed for purging filament before resuming a recovered print. |
 
 ## Security and Performance
 
