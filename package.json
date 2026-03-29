@@ -79,6 +79,11 @@
           "type": "string",
           "default": "#ff7a00",
           "description": "Hexadecimal color for the GCode extrusion lines."
+        },
+        "gcodePreview.recoveryPurgeGCode": {
+          "type": "string",
+          "default": "G1 E10 F300\n",
+          "description": "GCode commands to execute for purging filament before resuming a recovered print."
         }
       }
     }

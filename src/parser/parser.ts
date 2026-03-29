@@ -1,6 +1,8 @@
-import { Point3D, MoveType, GCodeCommand, GCodeLayer, GCodeParsedData } from './types';
+import { Point3D, MoveType, GCodeLayer, GCodeParsedData } from './types';
+import { parseLine, isExtrudingMove, parseLayerComment } from './parserUtils';
 
 export class GCodeParser {
+    /** Parse a full GCode string into layers and bounding box. */
     public parse(gcode: string): GCodeParsedData {
         const lines = gcode.split(/\r?\n/);
         const layers: GCodeLayer[] = [];
@@ -26,57 +28,40 @@ export class GCodeParser {
             pendingLayerFromComment = null;
         };
 
-        for (let line of lines) {
-            const commentIndex = line.indexOf(';');
-            let comment = '';
-            if (commentIndex !== -1) {
-                comment = line.substring(commentIndex);
-                line = line.substring(0, commentIndex);
-            }
-            
-            if (comment.toUpperCase().startsWith(';LAYER:')) {
-                const idx = parseInt(comment.substring(7), 10);
-                if (!isNaN(idx)) {
-                    pendingLayerFromComment = idx;
-                }
+        for (const line of lines) {
+            const pl = parseLine(line);
+
+            // Track layer hints from slicer comments (e.g. ;LAYER:3)
+            const layerIdx = parseLayerComment(pl.comment);
+            if (layerIdx !== null) { pendingLayerFromComment = layerIdx; }
+
+            // Skip blank lines and comment-only lines
+            if (pl.isCommentOnly || pl.command === '') { continue; }
+
+            const cmd = pl.command;
+
+            // Update positioning/extruder mode (mutually exclusive groups)
+            switch (cmd) {
+                case 'G90': absolutePositioning = true;  break;
+                case 'G91': absolutePositioning = false; break;
+                case 'M82': extruderRelative = false;    break;
+                case 'M83': extruderRelative = true;     break;
             }
 
-            line = line.trim();
-            if (!line) continue;
-            
-            const parts = line.split(/\s+/);
-            const cmd = parts[0].toUpperCase();
-
-            if (cmd === 'G90') absolutePositioning = true;
-            if (cmd === 'G91') absolutePositioning = false;
-            
-            if (cmd === 'M82') extruderRelative = false;
-            if (cmd === 'M83') extruderRelative = true;
-            
             if (cmd === 'G0' || cmd === 'G1') {
                 const nextPos = { ...currentPos };
                 let extrudingThisMove = false;
                 
-                for (let i = 1; i < parts.length; i++) {
-                    const p = parts[i];
-                    if (p.length < 2) continue;
-                    const letter = p[0].toUpperCase();
-                    const val = parseFloat(p.substring(1));
-                    
-                    if (!isNaN(val)) {
-                        if (letter === 'X') nextPos.x = absolutePositioning ? val : currentPos.x + val;
-                        else if (letter === 'Y') nextPos.y = absolutePositioning ? val : currentPos.y + val;
-                        else if (letter === 'Z') {
-                            nextPos.z = absolutePositioning ? val : currentPos.z + val;
-                        } else if (letter === 'E') {
-                            if (
-                                (extruderRelative && val > 0) ||
-                                (!extruderRelative && val > ePos)
-                            ) {
-                                extrudingThisMove = true;
-                            }
-                            ePos = extruderRelative ? ePos + val : val;                        
-                        }
+                for (const [letter, val] of pl.params) {
+                    if (letter === 'X') {
+                        nextPos.x = absolutePositioning ? val : currentPos.x + val;
+                    } else if (letter === 'Y') {
+                        nextPos.y = absolutePositioning ? val : currentPos.y + val;
+                    } else if (letter === 'Z') {
+                        nextPos.z = absolutePositioning ? val : currentPos.z + val;
+                    } else if (letter === 'E') {
+                        extrudingThisMove = isExtrudingMove(extruderRelative, val, ePos);
+                        ePos = extruderRelative ? ePos + val : val;
                     }
                 }
                 
@@ -87,8 +72,6 @@ export class GCodeParser {
                     if (currentLayer === null || targetZ !== currentPrintZ || pendingLayerFromComment !== null) {
                         createLayer(targetZ);
                     }
-                } else if (type === MoveType.Travel && currentLayer === null) {
-                    createLayer(nextPos.z);
                 }
                 
                 if (currentPos.x !== nextPos.x || currentPos.y !== nextPos.y || currentPos.z !== nextPos.z) {
@@ -99,22 +82,22 @@ export class GCodeParser {
                     maxPos.y = Math.max(maxPos.y, nextPos.y);
                     maxPos.z = Math.max(maxPos.z, nextPos.z);
 
-                    currentLayer!.commands.push({
-                        type,
-                        start: { ...currentPos },
-                        end: { ...nextPos },
-                        layerIndex: currentLayerIndex,
-                        extruding: extrudingThisMove
-                    });
+                    // Re-read currentLayer; TypeScript cannot track that createLayer()
+                    // (a closure) mutated the outer variable, so we use a cast.
+                    const layer = currentLayer as GCodeLayer | null;
+                    if (layer) {
+                        layer.commands.push({
+                            type,
+                            start: { ...currentPos },
+                            end: { ...nextPos },
+                            layerIndex: currentLayerIndex,
+                            extruding: extrudingThisMove
+                        });
+                    }
                 }
                 currentPos = nextPos;
             } else if (cmd === 'G92') {
-                for (let i = 1; i < parts.length; i++) {
-                    const p = parts[i];
-                    if (p.length < 2) continue;
-                    const val = parseFloat(p.substring(1));
-                    if (isNaN(val)) continue;
-                    const letter = p[0].toUpperCase();
+                for (const [letter, val] of pl.params) {
                     if (letter === 'E') {
                         ePos = val;
                     } else if (letter === 'X') {

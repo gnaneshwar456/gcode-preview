@@ -3,41 +3,42 @@ import { GCodeParsedData, MoveType, Point3D } from '../parser/types';
 import { addToScene, clearScenePaths, centerCamera, currentConfig } from './scene';
 
 let currentDataRef: GCodeParsedData | null = null;
-let printMoveLayerCounts: number[] = [];
-let travelVertexLayerCounts: number[] = [];
-
 let instancedCylinders: THREE.InstancedMesh | null = null;
 let instancedSpheres: THREE.InstancedMesh | null = null;
 let travelLines: THREE.LineSegments | null = null;
+let lastStartLayer = -1;
+let lastEndLayer = -1;
 
-export function renderGCode(data: GCodeParsedData, maxLayerIndex: number, showTravel: boolean, isUpdate: boolean = false) {
+export function renderGCode(data: GCodeParsedData, startLayerIndex: number, endLayerIndex: number, showTravel: boolean, isUpdate: boolean = false) {
     if (!data || data.layers.length === 0) return;
 
-    if (currentDataRef !== data) {
-        clearScenePaths();
-        currentDataRef = data;
-        
-        if (!isUpdate) {
+    if (currentDataRef !== data || lastStartLayer !== startLayerIndex || lastEndLayer !== endLayerIndex) {
+        // Center camera when loading a new dataset (not on slider updates)
+        if (!isUpdate && currentDataRef !== data) {
             centerCamera(data.boundingBox.min, data.boundingBox.max);
         }
 
+        clearScenePaths();
+        currentDataRef = data;
+        lastStartLayer = startLayerIndex;
+        lastEndLayer = endLayerIndex;
+
         const printMoves: Array<{start: Point3D, end: Point3D}> = [];
         const travelVertices: number[] = [];
-        printMoveLayerCounts = [];
-        travelVertexLayerCounts = [];
 
         for (let i = 0; i < data.layers.length; i++) {
             const layer = data.layers[i];
-            for (const cmd of layer.commands) {
-                if (cmd.type === MoveType.Print) {
-                    printMoves.push({ start: cmd.start, end: cmd.end });
-                } else if (cmd.type === MoveType.Travel) {
-                    travelVertices.push(cmd.start.x, cmd.start.y, cmd.start.z);
-                    travelVertices.push(cmd.end.x, cmd.end.y, cmd.end.z);
+            
+            if (i >= startLayerIndex && i <= endLayerIndex) {
+                for (const cmd of layer.commands) {
+                    if (cmd.type === MoveType.Print) {
+                        printMoves.push({ start: cmd.start, end: cmd.end });
+                    } else if (cmd.type === MoveType.Travel) {
+                        travelVertices.push(cmd.start.x, cmd.start.y, cmd.start.z);
+                        travelVertices.push(cmd.end.x, cmd.end.y, cmd.end.z);
+                    }
                 }
             }
-            printMoveLayerCounts[i] = printMoves.length;
-            travelVertexLayerCounts[i] = travelVertices.length / 3; 
         }
 
         const printCount = printMoves.length;
@@ -112,22 +113,7 @@ export function renderGCode(data: GCodeParsedData, maxLayerIndex: number, showTr
         }
     }
 
-    if (maxLayerIndex >= 0 && maxLayerIndex < data.layers.length) {
-        const printCountToShow = printMoveLayerCounts[maxLayerIndex] || 0;
-        const travelVerticesToShow = travelVertexLayerCounts[maxLayerIndex] || 0;
-
-        if (instancedCylinders && instancedSpheres) {
-            instancedCylinders.count = printCountToShow;
-            instancedSpheres.count = printCountToShow;
-        }
-
-        if (travelLines) {
-            if (showTravel) {
-                travelLines.visible = true;
-                travelLines.geometry.setDrawRange(0, travelVerticesToShow);
-            } else {
-                travelLines.visible = false;
-            }
-        }
+    if (travelLines) {
+        travelLines.visible = showTravel;
     }
 }

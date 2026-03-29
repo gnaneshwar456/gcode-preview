@@ -20,21 +20,21 @@ export function setupScene(container: HTMLElement) {
     scene.add(sceneStaticLayer);
     scene.add(sceneModelLayer);
 
-    // Camera setup profissional
+    // Camera
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 5000);
     camera.up.set(0, 0, 1);
     
     // Renderer
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio); // Antialias ativo e nítido
+    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    // OrbitControls melhorados
+    // OrbitControls
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2; // Impede descer além da mesa (não atravessar)
+    controls.maxPolarAngle = Math.PI / 2; // Prevent camera from going below the bed
     
     rebuildSceneFromConfig(currentConfig);
     fitCameraToBed();
@@ -50,12 +50,11 @@ export function setupScene(container: HTMLElement) {
 export function rebuildSceneFromConfig(config: PreviewConfig) {
     currentConfig = config;
 
-    // Clear static elements
-    while(sceneStaticLayer.children.length > 0) {
-        const child = sceneStaticLayer.children[0];
+    // Clear static elements (spread to avoid mutation-during-iteration issues)
+    [...sceneStaticLayer.children].forEach(child => {
         sceneStaticLayer.remove(child);
         const mesh = child as THREE.Mesh | THREE.LineSegments | THREE.Light;
-        if ((mesh as any).geometry) (mesh as any).geometry.dispose();
+        if ((mesh as any).geometry) { (mesh as any).geometry.dispose(); }
         if ((mesh as any).material) {
             if (Array.isArray((mesh as any).material)) {
                 (mesh as any).material.forEach((m: THREE.Material) => m.dispose());
@@ -63,7 +62,7 @@ export function rebuildSceneFromConfig(config: PreviewConfig) {
                 (mesh as any).material.dispose();
             }
         }
-    }
+    });
 
     const isDark = config.theme === 'dark';
     const bgColor = isDark ? '#2b2b2b' : '#f0f0f0';
@@ -97,19 +96,19 @@ export function rebuildSceneFromConfig(config: PreviewConfig) {
     gridHelperPrimary.position.set(bedSize / 2, bedSize / 2, 0.02);
     sceneStaticLayer.add(gridHelperPrimary);
 
-    // Contorno da mesa
+    // Bed outline
     const edgesGeo = new THREE.EdgesGeometry(bedGeo);
     const outlineMat = new THREE.LineBasicMaterial({ color: isDark ? '#9a9a9a' : '#555555', linewidth: 2 });
     const bedOutline = new THREE.LineSegments(edgesGeo, outlineMat);
     bedOutline.position.z = 0.03;
     sceneStaticLayer.add(bedOutline);
 
-    // Cruz de orientação
+    // Axes origin cross
     const axesHelper = new THREE.AxesHelper(Math.max(20, bedSize * 0.1));
     axesHelper.position.z = 0.04;
     sceneStaticLayer.add(axesHelper);
 
-    // Iluminação
+    // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, isDark ? 0.7 : 0.9);
     sceneStaticLayer.add(ambientLight);
 
@@ -127,10 +126,6 @@ export function fitCameraToBed() {
 
 export function addToScene(object: THREE.Object3D) {
     sceneModelLayer.add(object);
-}
-
-export function removeFromScene(object: THREE.Object3D) {
-    sceneModelLayer.remove(object);
 }
 
 export function clearScenePaths() {
