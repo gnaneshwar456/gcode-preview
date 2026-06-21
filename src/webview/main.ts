@@ -17,6 +17,8 @@ const state = {
     endLayer: 0,
     isPlaying: false,
     showTravel: true,
+    travelCurrentLayerOnly: false,
+    layerMoveIndex: 0,
     config: null as AppConfig | null
 };
 
@@ -28,7 +30,7 @@ function init() {
     setupUI(state, (newState) => {
         Object.assign(state, newState);
         if (state.data) {
-            renderGCode(state.data, state.startLayer, state.endLayer, state.showTravel, true);
+            renderGCode(state.data, state.startLayer, state.endLayer, state.showTravel, state.travelCurrentLayerOnly, state.layerMoveIndex, true);
         }
     });
 
@@ -59,14 +61,18 @@ function init() {
                             state.endLayer = maxLayer;
                         }
 
+                        const topLayerMoveCount = state.data.layers[state.endLayer].commands.length;
+                        state.layerMoveIndex = topLayerMoveCount;
+
                         updateUIMaxLayer(
                             maxLayer,
                             state.startLayer,
                             state.endLayer,
                             state.data.layers[state.startLayer].zHeight,
-                            state.data.layers[state.endLayer].zHeight
+                            state.data.layers[state.endLayer].zHeight,
+                            topLayerMoveCount
                         );
-                        renderGCode(state.data, state.startLayer, state.endLayer, state.showTravel, message.isUpdate);
+                        renderGCode(state.data, state.startLayer, state.endLayer, state.showTravel, state.travelCurrentLayerOnly, state.layerMoveIndex, message.isUpdate);
                     }
                 } catch (err) {
                     console.error('GCode parse error:', err);
@@ -78,7 +84,7 @@ function init() {
             state.config = message.config;
             rebuildSceneFromConfig(state.config!);
             if (state.data) {
-                renderGCode(state.data, state.startLayer, state.endLayer, state.showTravel, true);
+                renderGCode(state.data, state.startLayer, state.endLayer, state.showTravel, state.travelCurrentLayerOnly, state.layerMoveIndex, true);
             }
         }
     });

@@ -224,6 +224,7 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
             left: 12px;
             right: 12px;
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             align-items: stretch;
         }
@@ -328,6 +329,101 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
             flex-shrink: 0;
             font-variant-numeric: tabular-nums;
         }
+        .goto-row {
+            margin-top: 3px;
+            padding-top: 6px;
+            border-top: 1px solid var(--vscode-widget-border, rgba(255,255,255,0.08));
+        }
+        input[type="number"].num-input {
+            flex: 1;
+            min-width: 0;
+            background: var(--vscode-input-background, #2a2a2a);
+            color: var(--vscode-input-foreground, #ccc);
+            border: 1px solid var(--vscode-input-border, rgba(255,255,255,0.15));
+            border-radius: 4px;
+            padding: 3px 6px;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            outline: none;
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+        input[type="number"].num-input::-webkit-outer-spin-button,
+        input[type="number"].num-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"].num-input:focus {
+            border-color: var(--vscode-focusBorder, #0078d4);
+        }
+        #btn-goto-layer {
+            flex-shrink: 0;
+        }
+
+        /* ─── Current-Layer Move Scrubber ───────────────────────────── */
+        #panel-move {
+            flex: 1 1 100%;
+            padding: 8px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .move-row input[type="range"] {
+            flex: 1;
+        }
+        .move-row .slider-value {
+            width: auto;
+            min-width: 56px;
+        }
+        .move-detail {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        input[type="range"]#layer-move-slider::-webkit-slider-thumb {
+            background: #ff2d55;
+        }
+
+        /* ─── Playback Speed ─────────────────────────────────────────── */
+        #panel-playback {
+            min-width: 152px;
+        }
+        .speed-control {
+            margin-top: 4px;
+            padding-top: 6px;
+            border-top: 1px solid var(--vscode-widget-border, rgba(255,255,255,0.08));
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .speed-control-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .speed-value-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .speed-value-wrap .num-input {
+            width: 40px;
+            flex: none;
+            text-align: right;
+            padding: 2px 5px;
+        }
+        .speed-value-wrap .unit {
+            font-size: 10px;
+            color: var(--vscode-descriptionForeground, #888);
+        }
+        input[type="range"]#play-speed-slider::-webkit-slider-thumb {
+            background: var(--vscode-charts-orange, #d18616);
+        }
 
         /* ─── Info Panel ─────────────────────────────────────────────── */
         #panel-info {
@@ -375,15 +471,26 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
 
         /* ─── View Options Panel ─────────────────────────────────────── */
         #panel-view {
-            padding: 8px 12px;
+            padding: 8px 14px;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
         }
         .toggle-group {
             display: flex;
             align-items: center;
             gap: 7px;
+            transition: opacity 0.15s;
+        }
+        .toggle-group.subgroup {
+            margin-left: 4px;
+            padding-left: 10px;
+            border-left: 2px solid var(--vscode-widget-border, rgba(255,255,255,0.08));
+        }
+        .toggle-group.disabled {
+            opacity: 0.4;
+            pointer-events: none;
         }
         .toggle-label {
             font-size: 11px;
@@ -520,6 +627,16 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
                         <svg viewBox="0 0 16 16"><rect x="3" y="2" width="4" height="12" rx="1"/><rect x="9" y="2" width="4" height="12" rx="1"/></svg>
                     </button>
                 </div>
+                <div class="speed-control">
+                    <div class="speed-control-header">
+                        <span class="slider-label">Speed</span>
+                        <span class="speed-value-wrap">
+                            <input type="number" id="play-speed-input" class="num-input" min="0.1" max="500" step="0.1" value="10" title="Layers per second — type for an exact value" />
+                            <span class="unit">L/s</span>
+                        </span>
+                    </div>
+                    <input type="range" id="play-speed-slider" min="0" max="200" value="0" title="Drag for quick speed adjustment" />
+                </div>
             </div>
 
             <!-- Layer Range Sliders -->
@@ -534,6 +651,13 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
                     <span class="slider-label">End</span>
                     <input type="range" id="layer-slider-end" min="0" max="100" value="100" />
                     <span class="slider-value" id="slider-end-val">0</span>
+                </div>
+                <div class="slider-row goto-row">
+                    <span class="slider-label">Go to</span>
+                    <input type="number" id="layer-goto-input" class="num-input" min="0" max="100" value="0" />
+                    <button id="btn-goto-layer" class="icon-btn" title="Jump to layer (Enter)">
+                        <svg viewBox="0 0 16 16"><path d="M2 8h10M8 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
                 </div>
             </div>
 
@@ -550,6 +674,19 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
                 </div>
             </div>
 
+            <!-- Move scrubber: scrubs through individual moves of the currently
+                 displayed (top) layer, so the nozzle's exact path can be inspected
+                 move-by-move instead of jumping whole layers at a time. -->
+            <div id="panel-move" class="panel">
+                <div class="section-label">Current Layer — Move Scrubber</div>
+                <div class="slider-row move-row">
+                    <span class="slider-label">Move</span>
+                    <input type="range" id="layer-move-slider" min="0" max="0" value="0" title="Scrub through this layer's moves in order" />
+                    <span class="slider-value" id="move-value-label">0/0</span>
+                </div>
+                <div class="move-detail" id="move-detail-label">Full layer shown</div>
+            </div>
+
         </div>
 
         <!-- ── BOTTOM BAR ────────────────────────────────────────── -->
@@ -557,14 +694,20 @@ function getWebviewContent(webview: vscode.Webview, context: vscode.ExtensionCon
 
             <!-- View Options -->
             <div id="panel-view" class="panel">
-                <div class="section-label" style="margin-bottom:0">View</div>
-                <div class="divider"></div>
+                <div class="section-label">View</div>
                 <div class="toggle-group">
                     <label class="toggle-switch" for="toggle-travel" title="Show or hide travel moves">
                         <input type="checkbox" id="toggle-travel" checked />
                         <span class="toggle-track"></span>
                     </label>
                     <label class="toggle-label" for="toggle-travel">Travel moves</label>
+                </div>
+                <div class="toggle-group subgroup" id="travel-current-layer-group">
+                    <label class="toggle-switch" for="toggle-travel-current-layer" title="Only show travel moves on the currently displayed (top) layer — useful for spotting the nozzle striking earlier layers">
+                        <input type="checkbox" id="toggle-travel-current-layer" />
+                        <span class="toggle-track"></span>
+                    </label>
+                    <label class="toggle-label" for="toggle-travel-current-layer">This layer only</label>
                 </div>
             </div>
 

@@ -6,13 +6,37 @@ let currentDataRef: GCodeParsedData | null = null;
 let instancedCylinders: THREE.InstancedMesh | null = null;
 let instancedSpheres: THREE.InstancedMesh | null = null;
 let travelLines: THREE.LineSegments | null = null;
+let nozzleMarker: THREE.Mesh | null = null;
 let lastStartLayer = -1;
 let lastEndLayer = -1;
+let lastTravelCurrentOnly = false;
+let lastLayerMoveIndex = -1;
 
-export function renderGCode(data: GCodeParsedData, startLayerIndex: number, endLayerIndex: number, showTravel: boolean, isUpdate: boolean = false) {
+/**
+ * @param layerMoveIndex How many commands of the TOP layer (endLayerIndex) to draw,
+ *        in gcode order — e.g. 50 draws only the first 50 moves of that layer.
+ *        Pass Infinity (or the layer's full command count) to show the whole layer,
+ *        which matches the original/default behavior. Layers strictly below the top
+ *        layer are always drawn in full, same as before.
+ */
+export function renderGCode(
+    data: GCodeParsedData,
+    startLayerIndex: number,
+    endLayerIndex: number,
+    showTravel: boolean,
+    travelCurrentLayerOnly: boolean = false,
+    layerMoveIndex: number = Infinity,
+    isUpdate: boolean = false
+) {
     if (!data || data.layers.length === 0) return;
 
-    if (currentDataRef !== data || lastStartLayer !== startLayerIndex || lastEndLayer !== endLayerIndex) {
+    if (
+        currentDataRef !== data ||
+        lastStartLayer !== startLayerIndex ||
+        lastEndLayer !== endLayerIndex ||
+        lastTravelCurrentOnly !== travelCurrentLayerOnly ||
+        lastLayerMoveIndex !== layerMoveIndex
+    ) {
         // Center camera when loading a new dataset (not on slider updates)
         if (!isUpdate && currentDataRef !== data) {
             centerCamera(data.boundingBox.min, data.boundingBox.max);
@@ -22,21 +46,43 @@ export function renderGCode(data: GCodeParsedData, startLayerIndex: number, endL
         currentDataRef = data;
         lastStartLayer = startLayerIndex;
         lastEndLayer = endLayerIndex;
+        lastTravelCurrentOnly = travelCurrentLayerOnly;
+        lastLayerMoveIndex = layerMoveIndex;
 
         const printMoves: Array<{start: Point3D, end: Point3D}> = [];
         const travelVertices: number[] = [];
+        let lastShownCommand: { start: Point3D, end: Point3D } | null = null;
+        let firstTopLayerCommand: { start: Point3D, end: Point3D } | null = null;
 
         for (let i = 0; i < data.layers.length; i++) {
             const layer = data.layers[i];
-            
+
             if (i >= startLayerIndex && i <= endLayerIndex) {
-                for (const cmd of layer.commands) {
+                const isTopLayer = (i === endLayerIndex);
+                // Only the top (currently displayed) layer gets cut short mid-layer;
+                // every earlier layer in the range is always drawn in full.
+                const commandLimit = isTopLayer
+                    ? Math.max(0, Math.min(layerMoveIndex, layer.commands.length))
+                    : layer.commands.length;
+
+                if (isTopLayer && layer.commands.length > 0) {
+                    firstTopLayerCommand = layer.commands[0];
+                }
+
+                for (let c = 0; c < commandLimit; c++) {
+                    const cmd = layer.commands[c];
                     if (cmd.type === MoveType.Print) {
                         printMoves.push({ start: cmd.start, end: cmd.end });
                     } else if (cmd.type === MoveType.Travel) {
-                        travelVertices.push(cmd.start.x, cmd.start.y, cmd.start.z);
-                        travelVertices.push(cmd.end.x, cmd.end.y, cmd.end.z);
+                        // When isolating, only keep travel from the topmost layer, so the
+                        // user can see exactly which rapid moves belong to it — e.g. to
+                        // spot ones that dip back through already-printed material.
+                        if (!travelCurrentLayerOnly || isTopLayer) {
+                            travelVertices.push(cmd.start.x, cmd.start.y, cmd.start.z);
+                            travelVertices.push(cmd.end.x, cmd.end.y, cmd.end.z);
+                        }
                     }
+                    if (isTopLayer) { lastShownCommand = cmd; }
                 }
             }
         }
@@ -110,6 +156,40 @@ export function renderGCode(data: GCodeParsedData, startLayerIndex: number, endL
             addToScene(travelLines);
         } else {
             travelLines = null;
+        }
+
+        // "You are here" marker — a pin with its sharp tip placed at the exact
+        // nozzle coordinate. Orientation is fixed (tip straight down, body
+        // straight up) rather than rotating per move direction, so it's easy
+        // to track at a glance and reads the same way every time.
+        const markerSource = lastShownCommand ?? firstTopLayerCommand;
+        if (markerSource) {
+            const tipPoint = lastShownCommand ? lastShownCommand.end : markerSource.start;
+
+            const dartLength = 1.7;
+            const dartRadius = 0.32;
+            const markerGeo = new THREE.ConeGeometry(dartRadius, dartLength, 10);
+            // Default cone is centered on its own axis with the apex at +height/2.
+            // Shift it down so the apex sits exactly at local (0,0,0) — that point
+            // becomes the marker's position, i.e. the precise nozzle coordinate.
+            markerGeo.translate(0, -dartLength / 2, 0);
+
+            const markerMat = new THREE.MeshStandardMaterial({
+                color: '#ff2d55',
+                emissive: '#ff2d55',
+                emissiveIntensity: 0.55,
+                roughness: 0.25,
+                metalness: 0.2
+            });
+            nozzleMarker = new THREE.Mesh(markerGeo, markerMat);
+            nozzleMarker.position.set(tipPoint.x, tipPoint.y, tipPoint.z);
+            // Cone's default axis (apex direction) is local +Y; aim that straight
+            // down (-Z) so the tip always points down into the exact coordinate
+            // and the body always stands straight up, regardless of move direction.
+            nozzleMarker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1));
+            addToScene(nozzleMarker);
+        } else {
+            nozzleMarker = null;
         }
     }
 
