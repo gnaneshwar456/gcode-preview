@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+
+## [0.3.0] - 2026-06-22
+
+### Added
+- **Go-to-layer field**: numeric input next to the layer sliders that jumps directly to a typed layer number (Enter or button).
+- **Playback speed control**: log-scaled `play-speed-slider` paired with a precise `play-speed-input` (layers/sec). Updates the running animation live without rewriting the field mid-keystroke.
+- **Travel isolation toggle** (`toggle-travel-current-layer`): restricts rendered travel moves to only the currently displayed (top) layer, for spotting travel moves that cross through previously-printed geometry. Disabled/dimmed automatically when the master "Travel moves" toggle is off.
+- **Move scrubber** (`layer-move-slider`): steps through individual commands (print/travel) of the top layer in gcode order, independent of the Start/End layer range. Live caption (`move-value-label`, `move-detail-label`) shows move index, move type, and XYZ coordinates.
+- **Nozzle position marker**: cone mesh added to the scene during move-scrubbing, tip pinpointing the exact nozzle coordinate. Fixed tip-down orientation (not direction-of-travel-dependent) for consistent readability.
+- `CHANGELOG-FOR-HUMANS.md`: plain-English companion to this changelog, organized by the same version numbers.
+
+### Changed
+- `src/webview/ui.ts`: substantial rework — speed control, move scrubber, and travel-isolation state wiring; goto/speed number fields no longer fight in-progress typing.
+- `src/webview/renderer.ts`: `renderGCode` now accepts `travelCurrentLayerOnly` and `layerMoveIndex` params; the top layer can be partially rendered up to a given move index, and tracks a dirty-check cache to avoid unnecessary rebuilds.
+- `src/extension.ts`: webview HTML/CSS reorganized — new playback-speed and move-scrubber panels; removed native number-input spinner styling.
+- `src/webview/main.ts`: state now tracks `travelCurrentLayerOnly` and `layerMoveIndex`, threaded through every `renderGCode` call site.
+
 ## [0.2.0] - 2026-03-29
 
 ### Added
